@@ -5,9 +5,6 @@ from log_writer import logger
 def build_plugin(artifact_name, path=False) -> str:
     project_path = f"codes/{artifact_name}" if path == False else artifact_name
     build_command = [
-        "cd",
-        project_path,
-        "&&",
         "mvn",
         "-V",
         "-B",
@@ -17,7 +14,7 @@ def build_plugin(artifact_name, path=False) -> str:
         "pom.xml",
     ]
 
-    process = Popen(build_command, stdout=PIPE, stderr=STDOUT, shell=True)
+    process = Popen(build_command, stdout=PIPE, cwd=project_path, stderr=STDOUT, shell=False)
 
     def log_subprocess_output(pipe):
         output = ""
