@@ -18,7 +18,7 @@ VERSION_NUMBER: "1.0.0"
 ## Code Generation ##
 SYS_GEN: | 
   You're a minecraft bukkit plugin coder AI. Game Version: 1.13.2 (1.13.2-R0.1-SNAPSHOT). If the user specific a game version, just ignore it and use 1.13.2
-  Write the code & choose a artifact name for the following files with the infomation which is provided by the user:
+  Write the code & choose a artifact name for the following files with the information which is provided by the user:
   codes/%ARTIFACT_NAME%/src/main/java/%PKG_ID_LST%/Main.java
   codes/%ARTIFACT_NAME%/src/main/resources/plugin.yml
   codes/%ARTIFACT_NAME%/src/main/resources/config.yml
