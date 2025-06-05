@@ -1,4 +1,5 @@
-from openai import OpenAI, APIConnectionError, AuthenticationError
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, SystemMessage
 import chardet
 import sys
 import json
@@ -51,33 +52,50 @@ def askgpt(
     """
     if image_url is not None and config.USE_DIFFERENT_APIKEY_FOR_VISION_MODEL:
         logger("Using different API key for vision model.")
-        client = OpenAI(api_key=config.VISION_API_KEY, base_url=config.VISION_BASE_URL)
+        client = ChatOpenAI(
+            api_key=config.VISION_API_KEY,
+            base_url=config.VISION_BASE_URL,
+            model_name=model_name,
+            max_tokens=10000,
+            default_headers={
+                "HTTP-Referer": "https://cubegpt.org",
+                "X-Title": "CubeGPT",
+            },
+        )
     else:
-        client = OpenAI(api_key=config.API_KEY, base_url=config.BASE_URL)
+        client = ChatOpenAI(
+            api_key=config.API_KEY,
+            base_url=config.BASE_URL,
+            model_name=model_name,
+            max_tokens=10000,
+            default_headers={
+                "HTTP-Referer": "https://cubegpt.org",
+                "X-Title": "CubeGPT",
+            },
+        )
 
-    logger("Initialized the OpenAI client.")
+    logger("Initialized the LangChain LLM client.")
 
     # Define the messages for the conversation
     if image_url is not None:
         messages = [
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": [
+            SystemMessage(content=system_prompt),
+            HumanMessage(
+                content=[
                     {"type": "text", "text": user_prompt},
                     {"type": "image_url", "image_url": {"url": image_url}},
-                ],
-            },
+                ]
+            ),
         ]
     elif config.GENERATION_MODEL == "o1-preview" or config.GENERATION_MODEL == "o1-mini":
         messages = [
-            {"role": "user", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+            HumanMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
         ]
     else:
         messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
         ]
 
     logger(f"askgpt: system {system_prompt}")
@@ -85,34 +103,36 @@ def askgpt(
 
     # Create a chat completion
     try:
-        response = client.chat.completions.create(
-            model=model_name, messages=messages,
-            max_tokens=10000,
-            extra_headers={
-                "HTTP-Referer": "https://cubegpt.org",
-                "X-Title": "CubeGPT"
-            }
-        )
-    except APIConnectionError as e:
-        raise Exception("Failed to connect to your LLM provider. Please check your configuration (make sure the BASE_URL ends with /v1) and internet connection. IT IS NOT A BUG OF BUKKITGPT.")
-    except AuthenticationError as e:
-        raise Exception("Your API key is invalid. Please check your configuration. IT IS NOT A BUG OF BUKKITGPT.")
+        response = client.invoke(messages)
     except Exception as e:
-        raise e
+        logger(f"askgpt: invoke error {e}")
+        if "connect" in str(e).lower():
+            raise Exception(
+                "Failed to connect to your LLM provider. Please check your configuration (make sure the BASE_URL ends with /v1) and internet connection. IT IS NOT A BUG OF BUKKITGPT."
+            )
+        if "api key" in str(e).lower():
+            raise Exception(
+                "Your API key is invalid. Please check your configuration. IT IS NOT A BUG OF BUKKITGPT."
+            )
+        raise
 
     logger(f"askgpt: response {response}")
 
     if "Too many requests" in str(response):
         logger("Too many requests. Please try again later.")
-        raise Exception("Your LLM provider has rate limited you. Please try again later. IT IS NOT A BUG OF BUKKITGPT.")
+        raise Exception(
+            "Your LLM provider has rate limited you. Please try again later. IT IS NOT A BUG OF BUKKITGPT."
+        )
 
     # Extract the assistant's reply
     try:
-        assistant_reply = response.choices[0].message.content
+        assistant_reply = response.content
         logger(f"askgpt: extracted reply {assistant_reply}")
     except Exception as e:
         logger(f"askgpt: error extracting reply {e}")
-        raise Exception("Your LLM didn't return a valid response. Check if the API provider supportes OpenAI response format.")
+        raise Exception(
+            "Your LLM didn't return a valid response. Check if the API provider supportes OpenAI response format."
+        )
 
     return assistant_reply
 

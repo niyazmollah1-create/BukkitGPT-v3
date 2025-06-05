@@ -1,7 +1,7 @@
 ########## EDIT REQUIRED ##########
 
 # GPT SETTINGS #
-# Get your api key from openai. Remember google/bing is always your best friend.
+# Get your API key from a provider compatible with the OpenAI API (e.g. OpenRouter).
 
 API_KEY: "" # Get your API Key from https://openrouter.ai/settings/keys for free
 BASE_URL: "https://openrouter.ai/api/v1"
