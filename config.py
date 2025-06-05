@@ -4,10 +4,12 @@ from log_writer import logger
 
 def load_config():
     """
-    Loads the configuration from the 'config.yaml' file and sets the global variables accordingly.
+    Loads the configuration from the ``config.yaml`` file and sets the global
+    variables accordingly.
 
-    If the 'GENERATE_MODEL' key in the configuration is set to 'gpt-4', it forces the use of 'gpt-4-turbo-preview'
-    as the value for the 'GENERATE_MODEL' key, since 'gpt-4' no longer supports json modes.
+    If the ``GENERATION_MODEL`` key in the configuration is set to ``gpt-4``,
+    the function forces the use of ``gpt-4-turbo-preview`` as the value for this
+    key since ``gpt-4`` no longer supports JSON modes.
 
     Returns:
         None
