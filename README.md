@@ -65,7 +65,7 @@ python -m venv venv
 source venv/bin/activate # for Windows, use `venv\Scripts\activate`
 pip install -r requirements.txt
 ```
-2. Edit `config.yaml` and fill in your API key for your preferred LLM provider.
+2. Edit `config.yaml` to set `LLM_PROVIDER` (e.g. `openai`, `anthropic`, `google`) and fill in your provider API key.
 3. Run `ui.py` (with command `python ui.py`).
 4. Enjoy!
 

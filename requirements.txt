@@ -1,5 +1,7 @@
 langchain
 langchain-openai
+langchain-google-genai
+langchain-anthropic
 pyyaml
 cx_Freeze
 ttkbootstrap==0.5.1

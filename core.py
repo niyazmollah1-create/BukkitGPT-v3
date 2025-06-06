@@ -1,4 +1,6 @@
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 import chardet
 import sys
@@ -13,6 +15,28 @@ import shutil
 from diff import apply_patch
 from log_writer import logger
 import config
+
+
+def _create_client(provider: str, api_key: str, base_url: str, model_name: str):
+    provider = provider.lower()
+    if provider == "anthropic":
+        return ChatAnthropic(api_key=api_key, model_name=model_name, max_tokens=10000)
+    if provider == "google":
+        return ChatGoogleGenerativeAI(
+            google_api_key=api_key,
+            model=model_name,
+            max_output_tokens=10000,
+        )
+    return ChatOpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        model_name=model_name,
+        max_tokens=10000,
+        default_headers={
+            "HTTP-Referer": "https://cubegpt.org",
+            "X-Title": "CubeGPT",
+        },
+    )
 
 
 def initialize() -> None:
@@ -50,31 +74,18 @@ def askgpt(
     Returns:
         str: The response from the LLM.
     """
-    if image_url is not None and config.USE_DIFFERENT_APIKEY_FOR_VISION_MODEL:
+    provider = getattr(config, "LLM_PROVIDER", "openai")
+    if image_url is not None and getattr(config, "USE_DIFFERENT_APIKEY_FOR_VISION_MODEL", False):
         logger("Using different API key for vision model.")
-        client = ChatOpenAI(
-            api_key=config.VISION_API_KEY,
-            base_url=config.VISION_BASE_URL,
-            model_name=model_name,
-            max_tokens=10000,
-            default_headers={
-                "HTTP-Referer": "https://cubegpt.org",
-                "X-Title": "CubeGPT",
-            },
-        )
+        api_key = getattr(config, "VISION_API_KEY", config.API_KEY)
+        base_url = getattr(config, "VISION_BASE_URL", config.BASE_URL)
     else:
-        client = ChatOpenAI(
-            api_key=config.API_KEY,
-            base_url=config.BASE_URL,
-            model_name=model_name,
-            max_tokens=10000,
-            default_headers={
-                "HTTP-Referer": "https://cubegpt.org",
-                "X-Title": "CubeGPT",
-            },
-        )
+        api_key = config.API_KEY
+        base_url = config.BASE_URL
 
-    logger("Initialized the LangChain LLM client.")
+    client = _create_client(provider, api_key, base_url, model_name)
+
+    logger(f"Initialized the {provider} LLM client.")
 
     # Define the messages for the conversation
     if image_url is not None:
