@@ -51,7 +51,10 @@ def initialize() -> None:
     Returns:
         None
     """
-    locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+    try:
+        locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+    except locale.Error:
+        logger("Locale en_US.UTF-8 not available, using default locale.")
     logger(f"Launch. Software version {config.VERSION_NUMBER}, platform {sys.platform}")
 
 
