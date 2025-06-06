@@ -2,7 +2,7 @@ langchain
 langchain-openai
 langchain-google-genai
 langchain-anthropic
-pyyaml
+python-dotenv
 cx_Freeze
 ttkbootstrap==0.5.1
 pillow
