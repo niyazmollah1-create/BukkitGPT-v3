@@ -1,4 +1,3 @@
-import os
 import uuid
 
 import config
@@ -7,8 +6,8 @@ import build
 
 
 def main():
-    api_key = os.getenv("testing_llm_api_key") or os.getenv("TESTING_LLM_API_KEY")
-    base_url = os.getenv("testing_llm_base_url") or os.getenv("TESTING_LLM_BASE_URL")
+    api_key = config.API_KEY
+    base_url = config.BASE_URL
     if not api_key or not base_url:
         raise EnvironmentError("Testing API credentials are not set")
 

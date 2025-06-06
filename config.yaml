@@ -1,4 +1,8 @@
-########## EDIT REQUIRED ##########
+############################################
+########### DEPRECATED CONFIG ##############
+########### Use .env instead! ##############
+##### Changes here will not be applied #####
+############################################
 
 # GPT SETTINGS #
 # Choose your provider (`openai`, `anthropic`, or `google`) and fill in the API key.
