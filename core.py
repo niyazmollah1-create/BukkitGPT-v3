@@ -33,7 +33,7 @@ def _create_client(provider: str, api_key: str, base_url: str, model_name: str):
         model_name=model_name,
         max_tokens=10000,
         default_headers={
-            "HTTP-Referer": "https://cubegpt.org",
+            "HTTP-Referer": "https://cynia.dev",
             "X-Title": "CubeGPT",
         },
     )
