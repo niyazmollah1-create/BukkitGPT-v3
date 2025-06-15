@@ -14,7 +14,7 @@ def build_plugin(artifact_name, path=False) -> str:
         "pom.xml",
     ]
 
-    process = Popen(build_command, stdout=PIPE, cwd=project_path, stderr=STDOUT, shell=False)
+    process = Popen(build_command, stdout=PIPE, cwd=project_path, stderr=STDOUT, shell=True)
 
     def log_subprocess_output(pipe):
         output = ""
