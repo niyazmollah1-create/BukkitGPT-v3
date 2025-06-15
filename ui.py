@@ -120,7 +120,7 @@ def generate(args: dict) -> bool:
     description = args["PluginDescription"].get()
 
     artifact_name = name.replace(" ", "")
-    package_id = f"org.cubegpt.{uuid.uuid4().hex[:8]}"
+    package_id = f"org.CyniaAI.{uuid.uuid4().hex[:8]}"
 
     pkg_id_path = ""
     for id in package_id.split("."):
@@ -207,8 +207,7 @@ def edit(args: dict) -> bool:
     response = core.askgpt(
         config.SYS_EDIT,
         config.USR_EDIT.replace("ORIGINAL_CODE", code_text).replace("REQUEST", edit_request),
-        config.GENERATION_MODEL,
-        disable_json_mode=True
+        config.GENERATION_MODEL
     )
 
     # Extract the response
@@ -254,7 +253,7 @@ core.initialize()
 print("BukkitGPT v3 beta console running")
 
 # Banner
-root.add_banner_tool(GitHub("https://github.com/CubeGPT/BukkitGPT-v3"))
+root.add_banner_tool(GitHub("https://github.com/CyniaAI/BukkitGPT-v3"))
 
 # Generate Page
 root.add_notebook_tool(
@@ -383,9 +382,9 @@ root.add_notebook_tool(
 
 # Sidebar
 root.set_navigation_about(
-    author="CubeGPT Team",
+    author="CyniaAI Team",
     version=config.VERSION_NUMBER,
-    github_url="https://github.com/CubeGPT/BukkitGPT-v3",
+    github_url="https://github.com/CyniaAI/BukkitGPT-v3",
 )
 
 

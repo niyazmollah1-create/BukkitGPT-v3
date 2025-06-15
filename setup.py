@@ -14,9 +14,9 @@ files = [
 
 setup(name='BukkitGPT-v3',
       version=config.VERSION_NUMBER,
-      maintainer="CubeGPT Team",
-      maintainer_email="admin@cubegpt.org",
-      url="https://github.com/CubeGPT/BukkitGPT-v3",
+      maintainer="CyniaAI Team",
+      maintainer_email="admin@CyniaAI.org",
+      url="https://github.com/CyniaAI/BukkitGPT-v3",
       license="Apache License 2.0",
       description='An open source, free, AI-powered Minecraft Bukkit plugin generator',
       executables=[Executable('ui.py', base="gui")],

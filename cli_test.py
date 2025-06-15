@@ -19,7 +19,7 @@ def main():
     core.initialize()
 
     artifact_name = f"Test{uuid.uuid4().hex[:8]}"
-    pkg_id = f"org.cubegpt.{uuid.uuid4().hex[:8]}"
+    pkg_id = f"org.CyniaAI.{uuid.uuid4().hex[:8]}"
     pkg_id_path = "/".join(pkg_id.split(".")) + "/"
 
     codes = core.askgpt(

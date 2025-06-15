@@ -34,7 +34,7 @@ def _create_client(provider: str, api_key: str, base_url: str, model_name: str):
         max_tokens=10000,
         default_headers={
             "HTTP-Referer": "https://cynia.dev",
-            "X-Title": "CubeGPT",
+            "X-Title": "CyniaAI",
         },
     )
 
@@ -61,9 +61,7 @@ def initialize() -> None:
 def askgpt(
         system_prompt: str,
         user_prompt: str,
-        model_name: str,
-        disable_json_mode: bool = False,
-        image_url: str = None
+        model_name: str
     ) -> str:
     """
     Interacts with the LLM using the specified prompts.
@@ -72,36 +70,20 @@ def askgpt(
         system_prompt (str): The system prompt.
         user_prompt (str): The user prompt.
         model_name (str): The model name to use.
-        disable_json_mode (bool): Whether to disable JSON mode.
 
     Returns:
         str: The response from the LLM.
     """
     provider = getattr(config, "LLM_PROVIDER", "openai")
-    if image_url is not None and getattr(config, "USE_DIFFERENT_APIKEY_FOR_VISION_MODEL", False):
-        logger("Using different API key for vision model.")
-        api_key = getattr(config, "VISION_API_KEY", config.API_KEY)
-        base_url = getattr(config, "VISION_BASE_URL", config.BASE_URL)
-    else:
-        api_key = config.API_KEY
-        base_url = config.BASE_URL
+    api_key = config.API_KEY
+    base_url = config.BASE_URL
 
     client = _create_client(provider, api_key, base_url, model_name)
 
     logger(f"Initialized the {provider} LLM client.")
 
     # Define the messages for the conversation
-    if image_url is not None:
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(
-                content=[
-                    {"type": "text", "text": user_prompt},
-                    {"type": "image_url", "image_url": {"url": image_url}},
-                ]
-            ),
-        ]
-    elif config.GENERATION_MODEL == "o1-preview" or config.GENERATION_MODEL == "o1-mini":
+    if config.GENERATION_MODEL == "o1-preview" or config.GENERATION_MODEL == "o1-mini":
         messages = [
             HumanMessage(content=system_prompt),
             HumanMessage(content=user_prompt)
