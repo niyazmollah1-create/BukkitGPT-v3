@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.cubegpt</groupId>
+    <groupId>org.cyniaai</groupId>
     <artifactId>Demo</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
@@ -44,7 +44,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>org.cubegpt._54672e99.Main</mainClass>
+                            <mainClass>org.cyniaai._54672e99.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

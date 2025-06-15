@@ -1,5 +1,5 @@
 # Author: Acer Zhang
-# Edit: CubeGPT Team
+# Edit: CyniaAI Team
 # Original Version Datetime: 2021/9/16
 # Edited Version Datetime: 2024/5/31
 # Copyright belongs to the author.

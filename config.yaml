@@ -1,10 +1,14 @@
-########## EDIT REQUIRED ##########
+############################################
+########### DEPRECATED CONFIG ##############
+########### Use .env instead! ##############
+##### Changes here will not be applied #####
+############################################
 
 # GPT SETTINGS #
-# Get your api key from openai. Remember google/bing is always your best friend.
-
+# Choose your provider (`openai`, `anthropic`, or `google`) and fill in the API key.
+LLM_PROVIDER: "openai"
 API_KEY: "" # Get your API Key from https://openrouter.ai/settings/keys for free
-BASE_URL: "https://openrouter.ai/api/v1"
+BASE_URL: "https://openrouter.ai/api/v1" # Only used with the `openai` provider
 
 GENERATION_MODEL: "deepseek/deepseek-r1:free"
 FIXING_MODEL: "openai/gpt-4o"
@@ -75,9 +79,9 @@ SYS_EDIT: |
   You should edit the codes to meet the request.
   You should use git diff (without index line) to show the changes you made.
 
-  For example, if the original code of codes/ExamplePlugin4/src/main/java/org/cubegpt/188eba63/Main.java is:
+  For example, if the original code of codes/ExamplePlugin4/src/main/java/org/CyniaAI/188eba63/Main.java is:
   ```java
-  1 package org.cubegpt._188eba63;
+  1 package org.CyniaAI._188eba63;
   2 
   3 import org.bukkit.Bukkit;
   4 import org.bukkit.event.EventHandler;
@@ -100,9 +104,9 @@ SYS_EDIT: |
   ```
   And the request is "Change the join message to 'hi'", then the response should be:
   ```diff
-  diff --git a/codes/ExamplePlugin4/src/main/java/org/cubegpt/188eba63/Main.java b/codes/ExamplePlugin4/src/main/java/org/cubegpt/188eba63/Main.java
-  --- a/codes/ExamplePlugin4/src/main/java/org/cubegpt/188eba63/Main.java
-  +++ b/codes/ExamplePlugin4/src/main/java/org/cubegpt/188eba63/Main.java
+  diff --git a/codes/ExamplePlugin4/src/main/java/org/CyniaAI/188eba63/Main.java b/codes/ExamplePlugin4/src/main/java/org/CyniaAI/188eba63/Main.java
+  --- a/codes/ExamplePlugin4/src/main/java/org/CyniaAI/188eba63/Main.java
+  +++ b/codes/ExamplePlugin4/src/main/java/org/CyniaAI/188eba63/Main.java
   @@ -1,17 +1,17 @@
   -event.getPlayer().sendMessage("hello");
   +event.getPlayer().sendMessage("hi");
