@@ -1,11 +1,19 @@
 from subprocess import Popen, PIPE, STDOUT
+import shutil
+import locale
+
 from log_writer import logger
 
 
 def build_plugin(artifact_name, path=False) -> str:
-    project_path = f"codes/{artifact_name}" if path == False else artifact_name
+    project_path = f"codes/{artifact_name}" if not path else artifact_name
+    mvn_exec = shutil.which("mvn") or shutil.which("mvn.cmd")
+    sys_enc = locale.getpreferredencoding(False)
+    if not mvn_exec:
+        raise FileNotFoundError("Could not find 'mvn' executable. Please ensure Maven is installed and available in your PATH.")
+
     build_command = [
-        "mvn",
+        mvn_exec,
         "-V",
         "-B",
         "clean",
@@ -14,25 +22,28 @@ def build_plugin(artifact_name, path=False) -> str:
         "pom.xml",
     ]
 
-    process = Popen(build_command, stdout=PIPE, cwd=project_path, stderr=STDOUT, shell=True)
+    process = Popen(
+        build_command,
+        stdout=PIPE,
+        stderr=STDOUT,
+        cwd=project_path,
+        text=True,
+        encoding=sys_enc,
+        errors="replace",
+        shell=False
+    )
 
-    def log_subprocess_output(pipe):
-        output = ""
-        for line in iter(pipe.readline, b""):
-            str_line = str(line)
-            output += str_line
-            logger(f"building -> {str_line}")
-        return output
-
-    with process.stdout:
-        output = log_subprocess_output(process.stdout)
+    output = ""
+    for line in process.stdout:
+        clean = line.rstrip()
+        logger(f"building -> {clean}")
+        output += clean + "\n"
 
     process.wait()
-
     return output
 
 
 if __name__ == "__main__":
-    result = build_plugin("ExamplePlugin2")
+    result = build_plugin("Demo4")
     print(result)
     print(type(result))
