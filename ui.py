@@ -1,15 +1,11 @@
 from cube_qgui.__init__ import CreateQGUI
 from cube_qgui.banner_tools import *
 from cube_qgui.notebook_tools import *
-from playwright.sync_api import Playwright, sync_playwright
 import os
-import shutil
-import uuid
 
 from log_writer import logger
 import config
 import core
-import build
 
 
 # ---------- Functions ----------#
@@ -102,139 +98,7 @@ def raise_error(args: dict):
     raise Exception("This is a test error.")
 
 
-# ---------- Generate Function ----------#
-def generate(args: dict) -> bool:
-    """
-    Generates the plugin.
 
-    Args:
-        args (dict): A dictionary containing the necessary arguments.
-
-    Returns:
-        bool: Always True.
-    """
-    global error_msg, pkg_id_path
-
-    # Get user inputs
-    name = args["PluginName"].get()
-    description = args["PluginDescription"].get()
-
-    artifact_name = name.replace(" ", "")
-    package_id = f"org.CyniaAI.{uuid.uuid4().hex[:8]}"
-
-    pkg_id_path = ""
-    for id in package_id.split("."):
-        pkg_id_path += id + "/"
-
-    logger(f"user_input -> name: {name}")
-    logger(f"user_input -> description: {description}")
-    logger(f"random_generate -> package_id: {package_id}")
-    logger(f"str_path -> pkg_id_path: {pkg_id_path}")
-
-    print("Generating plugin...")
-
-    codes = core.askgpt(
-        config.SYS_GEN.replace("%ARTIFACT_NAME%", artifact_name).replace(
-            "%PKG_ID_LST%", pkg_id_path
-        ),
-        config.USR_GEN.replace("%DESCRIPTION", description),
-        config.GENERATION_MODEL,
-    )
-    logger(f"codes: {codes}")
-
-    core.response_to_action(codes)
-
-    print("Code generated. Building now...")
-
-    result = build.build_plugin(artifact_name)
-
-    target_dir = f"codes/{artifact_name}/target"
-    jar_files = [f for f in os.listdir(target_dir) if f.endswith('.jar')]
-    
-    if jar_files:
-        print(f"Build complete. Find your plugin at '{target_dir}/{jar_files[0]}'")
-    else:
-        error_msg = result
-        print("Build failed. This is because the code LLM generated has syntax errors. Please try again or switch to a better LLM like o1 or r1. IT IS NOT A BUG OF BUKKITGPT.")
-
-    return True
-
-
-def edit(args: dict) -> bool:
-    """
-    Edits the plugin.
-
-    Args:
-        args (dict): A dictionary containing the arguments.
-
-    Returns:
-        bool: Always True.
-    """
-    # Get user inputs
-    original_jar = args["OriginalJAR"].get()
-    edit_request = args["EditRequest"].get()
-
-    # Get the decompiled path
-    decompiled_path = f"codes/decompiled/{original_jar.split('/')[-1].split('.')[0]}"
-
-    # Decompile the jar
-    core.decompile_jar(original_jar, decompiled_path)
-
-    # Generate a buildable maven folder in the decompiled path
-    os.makedirs(f"{decompiled_path}/src/main/java", exist_ok=True)
-
-    # Delete decompiled_path/summary.txt
-    summary_path = os.path.join(decompiled_path, "summary.txt")
-    if os.path.exists(summary_path):
-        os.remove(summary_path)
-
-    # Move decompiled_path/* to decompiled_path/src/main/java
-    for item in os.listdir(decompiled_path):
-        if item != 'src':
-            s = os.path.join(decompiled_path, item)
-            d = os.path.join(decompiled_path, "src/main/java", item)
-            if os.path.isdir(s):
-                shutil.move(s, d)
-            elif os.path.isfile(s):
-                shutil.move(s, d)
-    
-    # Create empty pom.xml
-    with open(f"{decompiled_path}/pom.xml", "w") as f:
-        f.write("<!-- Replace with the pom.xml code -->")
-
-    # Generate request
-    code_text = core.code_to_text(decompiled_path)
-    response = core.askgpt(
-        config.SYS_EDIT,
-        config.USR_EDIT.replace("ORIGINAL_CODE", code_text).replace("REQUEST", edit_request),
-        config.GENERATION_MODEL
-    )
-
-    # Extract the response
-    diffs = core.parse_edit_response(response)
-    logger(f"[DEBUG] Extracted diffs: {diffs}")
-
-    # Apply edit
-    response = core.apply_diff_changes(diffs, decompiled_path)
-
-    if response[0] == False:
-        error_message = response[1]
-        # TODO: Pass the error to the LLM and fix that
-        print(f"The diff LLM generated is invalid. Please try again or switch to a better LLM like o1 or r1. IT IS NOT A BUG OF BUKKITGPT.")
-    else:
-        print("Edit complete. Recompiling...")
-        result = build.build_plugin(decompiled_path, path=True)
-        target_dir = f"{decompiled_path}/target"
-        jar_files = [f for f in os.listdir(target_dir) if f.endswith('.jar')]
-        
-        if jar_files:
-            print(f"Build complete. Find your plugin at '{target_dir}/{jar_files[0]}'")
-        else:
-            error_msg = result
-            print("Build failed. This is because the code LLM generated has syntax errors. Please try again or switch to a better LLM like o1 or r1. IT IS NOT A BUG OF BUKKITGPT.")
-        
-
-    return True
 
 
 
@@ -269,7 +133,7 @@ root.add_notebook_tool(
 
 root.add_notebook_tool(
     RunButton(
-        bind_func=generate,
+        bind_func=core.generate,
         name="Generate",
         text="Generate Plugin",
         checked_text="Generating...",
@@ -297,7 +161,7 @@ root.add_notebook_tool(
 
 root.add_notebook_tool(
     RunButton(
-        bind_func=edit,
+        bind_func=core.edit,
         name="Edit",
         text="Edit Plugin",
         checked_text="Editing...",
