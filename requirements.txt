@@ -9,3 +9,4 @@ pillow
 playwright
 chardet
 requests
+streamlit

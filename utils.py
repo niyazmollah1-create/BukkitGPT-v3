@@ -368,32 +368,92 @@ def apply_diff_changes(diffs: list[str], decomplied_path) -> bool:
             if line.startswith("---"):
                 logger(f"Found original file path: {line}")
                 original_file = line.split("---")[-1].strip()
-                original_file = original_file.replace(original_file.split("/")[0], decomplied_path, 1)
+                # Skip /dev/null paths (indicates new file creation)
+                if "/dev/null" not in original_file:
+                    original_file = original_file.replace(original_file.split("/")[0], decomplied_path, 1)
+                else:
+                    original_file = None
             elif line.startswith("+++"):
                 logger(f"Found modified file path: {line}")
                 modified_file = line.split("+++")[-1].strip()
-                modified_file = modified_file.replace( modified_file.split("/")[0] , decomplied_path, 1)
+                # Handle /dev/null paths (indicates file deletion)
+                if "/dev/null" not in modified_file:
+                    modified_file = modified_file.replace(modified_file.split("/")[0], decomplied_path, 1)
+                else:
+                    # For file deletion, we don't need to create the modified file
+                    continue
+
+        # Handle different scenarios based on file paths
+        if original_file is None and modified_file is not None:
+            # New file creation (original was /dev/null)
+            logger(f"Creating new file: {modified_file}")
+            # Extract content from diff for new file
+            diff_lines = []
+            in_content = False
+            for line in lines:
+                if line.startswith("@@"):
+                    in_content = True
+                    continue
+                if in_content and (line.startswith("+") and not line.startswith("+++")):
+                    diff_lines.append(line[1:])  # Remove the '+' prefix
+            
+            # Create directory if it doesn't exist
+            os.makedirs(os.path.dirname(modified_file), exist_ok=True)
+            
+            # Write new file content
+            with open(modified_file, "w", encoding='utf-8') as file:
+                file.write("\n".join(diff_lines))
+            continue
+            
+        elif original_file is not None and modified_file is None:
+            # File deletion (modified was /dev/null)
+            logger(f"Deleting file: {original_file}")
+            if os.path.exists(original_file):
+                os.remove(original_file)
+            continue
+            
+        elif original_file is None and modified_file is None:
+            return (False, f"Both file paths are /dev/null in diff, which is invalid.\nThe error diff content: {diff}")
 
         if original_file is None or modified_file is None:
             return (False, f"One of your diffs is missing the file paths. (eg. --- a/test.txt and +++ b/test.txt).\nThe error diff content: {diff}")
         
+        # Check if original file exists
+        if not os.path.exists(original_file):
+            return (False, f"Original file does not exist: {original_file}\nThe error diff content: {diff}")
+        
         # The remaining lines contain the diff.
-        diff_lines = lines[3:]
+        diff_lines = []
+        for i, line in enumerate(lines):
+            if line.startswith("@@"):
+                diff_lines = lines[i:]
+                break
+        
+        if not diff_lines:
+            return (False, f"No diff content found in diff block.\nThe error diff content: {diff}")
+            
         diff_codes = "\n".join(diff_lines)
 
         # Apply diff with diff.py
-        with open(original_file, "r") as file:
-            original_content = file.read()
+        try:
+            with open(original_file, "r", encoding='utf-8') as file:
+                original_content = file.read()
+        except Exception as e:
+            return (False, f"Failed to read original file {original_file}: {str(e)}\nThe error diff content: {diff}")
 
-        # try:
-        #     result = apply_patch(original_content, diff_codes)
-        # except:
-        #     return (False, f"One of your diffs has a syntax error. Please check and fix your diff.\nThe error diff content: {diff}")
+        try:
+            result = apply_patch(original_content, diff_codes)
+        except Exception as e:
+            return (False, f"Failed to apply patch: {str(e)}\nThe error diff content: {diff}")
 
-        result = apply_patch(original_content, diff_codes)
-
-        with open(modified_file, "w") as file:
-            file.write(result)
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(modified_file), exist_ok=True)
+        
+        try:
+            with open(modified_file, "w", encoding='utf-8') as file:
+                file.write(result)
+        except Exception as e:
+            return (False, f"Failed to write modified file {modified_file}: {str(e)}\nThe error diff content: {diff}")
 
     return (True, "")
 
