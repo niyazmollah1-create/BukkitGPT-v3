@@ -1,6 +1,7 @@
 import os
 import uuid
 import shutil
+import queue
 
 import build
 import config
@@ -18,13 +19,13 @@ parse_edit_response = utils.parse_edit_response
 apply_diff_changes = utils.apply_diff_changes
 
 
-def generate(args: dict) -> bool:
+def generate(args: dict, output_queue: queue.Queue = None) -> bool:
     """Generate a new plugin using the provided arguments."""
     name = args["PluginName"].get()
     description = args["PluginDescription"].get()
 
     artifact_name = name.replace(" ", "")
-    package_id = f"org.CyniaAI.{uuid.uuid4().hex[:8]}"
+    package_id = f"dev.cynia.{uuid.uuid4().hex[:8]}"
     pkg_id_path = "".join(id + "/" for id in package_id.split("."))
 
     logger(f"user_input -> name: {name}")
@@ -32,7 +33,10 @@ def generate(args: dict) -> bool:
     logger(f"random_generate -> package_id: {package_id}")
     logger(f"str_path -> pkg_id_path: {pkg_id_path}")
 
-    print("Generating plugin...")
+    if output_queue:
+        output_queue.put("Generating plugin...")
+    else:
+        print("Generating plugin...")
 
     codes = askgpt(
         config.SYS_GEN.replace("%ARTIFACT_NAME%", artifact_name).replace(
@@ -45,25 +49,36 @@ def generate(args: dict) -> bool:
 
     response_to_action(codes)
 
-    print("Code generated. Building now...")
+    if output_queue:
+        output_queue.put("Code generated. Building now...")
+    else:
+        print("Code generated. Building now...")
 
-    result = build.build_plugin(artifact_name)
+    result = build.build_plugin(artifact_name, output_queue=output_queue)
 
     target_dir = f"codes/{artifact_name}/target"
     jar_files = [f for f in os.listdir(target_dir) if f.endswith('.jar')]
 
     if jar_files:
-        print(f"Build complete. Find your plugin at '{target_dir}/{jar_files[0]}'")
+        message = f"Build complete. Find your plugin at '{target_dir}/{jar_files[0]}'"
+        if output_queue:
+            output_queue.put(message)
+        else:
+            print(message)
     else:
-        print(
+        error_message = (
             "Build failed. This is because the code LLM generated has syntax errors. "
             "Please try again or switch to a better LLM like o1 or r1. IT IS NOT A BUG OF BUKKITGPT."
         )
+        if output_queue:
+            output_queue.put(error_message)
+        else:
+            print(error_message)
 
     return True
 
 
-def edit(args: dict) -> bool:
+def edit(args: dict, output_queue: queue.Queue = None) -> bool:
     """Edit an existing plugin according to the user's request."""
     original_jar = args["OriginalJAR"].get()
     edit_request = args["EditRequest"].get()
@@ -103,22 +118,38 @@ def edit(args: dict) -> bool:
     resp = apply_diff_changes(diffs, decompiled_path)
 
     if resp[0] is False:
-        print(
+        error_message = (
             "The diff LLM generated is invalid. Please try again or switch to a better LLM like o1 or r1. IT IS NOT A BUG OF BUKKITGPT."
         )
+        if output_queue:
+            output_queue.put(error_message)
+        else:
+            print(error_message)
     else:
-        print("Edit complete. Recompiling...")
-        result = build.build_plugin(decompiled_path, path=True)
+        if output_queue:
+            output_queue.put("Edit complete. Recompiling...")
+        else:
+            print("Edit complete. Recompiling...")
+            
+        result = build.build_plugin(decompiled_path, path=True, output_queue=output_queue)
         target_dir = f"{decompiled_path}/target"
         jar_files = [f for f in os.listdir(target_dir) if f.endswith('.jar')]
 
         if jar_files:
-            print(f"Build complete. Find your plugin at '{target_dir}/{jar_files[0]}'")
+            message = f"Build complete. Find your plugin at '{target_dir}/{jar_files[0]}'"
+            if output_queue:
+                output_queue.put(message)
+            else:
+                print(message)
         else:
-            print(
+            error_message = (
                 "Build failed. This is because the code LLM generated has syntax errors. "
                 "Please try again or switch to a better LLM like o1 or r1. IT IS NOT A BUG OF BUKKITGPT."
             )
+            if output_queue:
+                output_queue.put(error_message)
+            else:
+                print(error_message)
 
     return True
 
