@@ -166,45 +166,66 @@ with tab_generate:
             # 保存参数到session state
             st.session_state.last_generate_args = args
             
-            # 使用队列来捕获构建输出
+            # 使用队列来捕获构建输出和状态
             build_output_queue = queue.Queue()
+            status_queue = queue.Queue()
             
             def generate_with_output():
                 try:
+                    # 先生成代码
+                    status_queue.put("code_generated")
                     core.generate(args, build_output_queue)
+                    status_queue.put("build_complete")
                     return True
                 except Exception as e:
                     build_output_queue.put(f"ERROR: {str(e)}")
+                    status_queue.put("error")
                     return False
             
             # 在线程中运行生成
             thread = threading.Thread(target=generate_with_output)
             thread.start()
             
-            # 等待代码生成完成
-            time.sleep(2)  # 给代码生成一些时间
-            step1.success("✅ Step 1: Code generation complete")
-            step2.info("🔄 Step 2: Building plugin...")
-            
-            # 实时显示构建输出
+            # 实时显示输出和状态
             output_text = ""
             output_display = output_container.empty()
+            code_generated = False
             
             while thread.is_alive() or not build_output_queue.empty():
+                # 检查构建输出
                 try:
                     line = build_output_queue.get_nowait()
-                    output_text += line + "\n"
-                    with output_display.container():
-                        st.text_area("Build Output:", value=output_text, height=300, disabled=True)
+                    # 检查是否是状态消息
+                    if line.startswith("STATUS:"):
+                        status = line.replace("STATUS:", "")
+                        if status == "code_generated" and not code_generated:
+                            step1.success("✅ Step 1: Code generation complete")
+                            step2.info("🔄 Step 2: Building plugin...")
+                            code_generated = True
+                        elif status == "build_complete":
+                            step2.success("✅ Step 2: Build complete")
+                        elif status in ["build_failed", "error"]:
+                            if code_generated:
+                                step2.error("❌ Step 2: Build failed")
+                            else:
+                                step1.error("❌ Step 1: Code generation failed")
+                            break
+                    else:
+                        # 普通输出消息
+                        output_text += line + "\n"
+                        with output_display.container():
+                            st.text_area("Build Output:", value=output_text, height=300, disabled=True)
                 except queue.Empty:
                     time.sleep(0.1)
             
             thread.join()
             
-            step2.success("✅ Step 2: Build complete")
-            st.success("🎉 Generation complete!")
-            st.info("📁 Please check the **Downloads** tab to download your generated plugin.")
-            st.session_state.generation_completed = True
+            if not code_generated:
+                step1.error("❌ Step 1: Code generation failed")
+            else:
+                st.success("🎉 Generation complete!")
+                st.info("📁 Please check the **Downloads** tab to download your generated plugin.")
+                st.session_state.generation_completed = True
             
         except Exception as e:
             step1.error(f"❌ Step 1 failed: {str(e)}")
@@ -246,79 +267,118 @@ with tab_edit:
                 step3 = st.empty()
                 output_container = st.empty()
             
-            try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.jar') as tmp_file:
-                    tmp_file.write(original_jar.getvalue())
-                    jar_path = tmp_file.name
-                
-                # 步骤1: 反编译
-                step1.info("🔄 Step 1: Decompiling JAR...")
-                step2.empty()
-                step3.empty()
-                
-                args = {
-                    "OriginalJAR": Arg(jar_path),
-                    "EditRequest": Arg(edit_request),
-                }
-                
-                # 保存参数到session state
-                st.session_state.last_edit_args = args
-                
-                # 使用队列来捕获构建输出
-                build_output_queue = queue.Queue()
-                
-                def edit_with_output():
-                    try:
-                        core.edit(args, build_output_queue)
-                        return True
-                    except Exception as e:
-                        build_output_queue.put(f"ERROR: {str(e)}")
-                        return False
-                
-                # 在线程中运行编辑
-                thread = threading.Thread(target=edit_with_output)
-                thread.start()
-                
-                # 等待反编译完成
-                time.sleep(2)
-                step1.success("✅ Step 1: Decompilation complete")
-                step2.info("🔄 Step 2: Applying edits...")
-                
-                # 等待编辑完成
-                time.sleep(3)
-                step2.success("✅ Step 2: Edits applied")
-                step3.info("🔄 Step 3: Rebuilding plugin...")
-                
-                # 实时显示构建输出
-                output_text = ""
-                output_display = output_container.empty()
-                
-                while thread.is_alive() or not build_output_queue.empty():
-                    try:
-                        line = build_output_queue.get_nowait()
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.jar') as tmp_file:
+                tmp_file.write(original_jar.getvalue())
+                jar_path = tmp_file.name
+            
+            # 步骤1: 反编译
+            step1.info("🔄 Step 1: Decompiling JAR...")
+            step2.empty()
+            step3.empty()
+            
+            args = {
+                "OriginalJAR": Arg(jar_path),
+                "EditRequest": Arg(edit_request),
+            }
+            
+            # 保存参数到session state
+            st.session_state.last_edit_args = args
+            
+            # 使用队列来捕获构建输出和状态
+            build_output_queue = queue.Queue()
+            status_queue = queue.Queue()
+            
+            def edit_with_output():
+                try:
+                    result = core.edit(args, build_output_queue)
+                    return result
+                except Exception as e:
+                    build_output_queue.put(f"ERROR: {str(e)}")
+                    build_output_queue.put("STATUS:error")
+                    return False
+            
+            # 在线程中运行编辑
+            thread = threading.Thread(target=edit_with_output)
+            thread.start()
+            
+            # 实时显示输出和状态
+            output_text = ""
+            output_display = output_container.empty()
+            decompiled = False
+            edits_applied = False
+            rebuild_complete = False
+            process_success = False
+            
+            while thread.is_alive() or not build_output_queue.empty():
+                # 检查构建输出
+                try:
+                    line = build_output_queue.get_nowait()
+                    # 检查是否是状态消息
+                    if line.startswith("STATUS:"):
+                        status = line.replace("STATUS:", "")
+                        if status == "decompiled" and not decompiled:
+                            step1.success("✅ Step 1: Decompilation complete")
+                            step2.info("🔄 Step 2: Applying edits...")
+                            decompiled = True
+                        elif status == "edits_applied" and not edits_applied:
+                            step2.success("✅ Step 2: Edits applied")
+                            step3.info("🔄 Step 3: Rebuilding plugin...")
+                            edits_applied = True
+                        elif status == "rebuild_complete":
+                            step3.success("✅ Step 3: Rebuild complete")
+                            rebuild_complete = True
+                            process_success = True
+                        elif status == "edit_failed":
+                            step2.error("❌ Step 2: Edit application failed")
+                            break
+                        elif status == "rebuild_failed":
+                            step3.error("❌ Step 3: Rebuild failed")
+                            break
+                        elif status == "error":
+                            if not decompiled:
+                                step1.error("❌ Step 1: Decompilation failed")
+                            elif not edits_applied:
+                                step2.error("❌ Step 2: Edit application failed")
+                            else:
+                                step3.error("❌ Step 3: Rebuild failed")
+                            break
+                    else:
+                        # 普通输出消息
                         output_text += line + "\n"
                         with output_display.container():
                             st.text_area("Build Output:", value=output_text, height=300, disabled=True)
-                    except queue.Empty:
-                        time.sleep(0.1)
-                
-                thread.join()
-                
-                step3.success("✅ Step 3: Rebuild complete")
-                
-                # Clean up temporary file
-                os.unlink(jar_path)
-                
+                except queue.Empty:
+                    time.sleep(0.1)
+            
+            thread.join()
+            
+            # Clean up temporary file
+            os.unlink(jar_path)
+            
+            if rebuild_complete and process_success:
                 st.success("🎉 Edit complete!")
                 st.info("📁 Please check the **Downloads** tab to download your edited plugin.")
                 st.session_state.edit_completed = True
-                
-            except Exception as e:
-                step1.error(f"❌ Edit failed: {str(e)}")
-                step2.empty()
-                step3.empty()
-                st.error(str(e))
+            else:
+                st.error("❌ Edit process failed")
                 st.session_state.edit_completed = False
+                
+            # 清理临时文件
+            try:
+                if os.path.exists(jar_path):
+                    os.unlink(jar_path)
+            except Exception as e:
+                st.warning(f"Warning cleaning up temporary files: {str(e)}")
+            finally:
+                # 反编译失败时，尝试删除生成的文件
+                if not decompiled:
+                    try:
+                        artifact_name = os.path.basename(jar_path).replace(".jar", "")
+                        target_dir = Path("codes") / artifact_name / "target"
+                        if target_dir.exists():
+                            shutil.rmtree(target_dir)
+                    except Exception as e:
+                        st.warning(f"Warning cleaning up generated files: {str(e)}")
 
 with tab_downloads:
     st.subheader("📁 Download Center")
