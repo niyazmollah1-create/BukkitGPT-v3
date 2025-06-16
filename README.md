@@ -74,6 +74,22 @@ pip install -r requirements.txt
 5. Go to your BukkitGPT folder, execute `build.bat` in `projects/<artifact_name_of_your_plugin>`.
 6. You'll find your plugin in `projects/<artifact_name_of_your_plugin>/target` folder.
 
+### 'mvn' is not recognized as an internal or external command
+
+** If you have not installed Maven, please follow the steps below: **
+1. Make sure you have [Maven](https://maven.apache.org/) installed.
+2. Add the Maven `bin` directory to your system `PATH` environment variable.
+3. Restart your terminal or command prompt.
+
+** If you are sure that you installed Maven and it does work everywhere else, but not in BukkitGPT-v3: **
+
+Sometimes the terminal does not use the system `PATH` environment variable, so you need to set it manually. You can do this by adding the following line to your `.env` file:
+
+```plaintext
+PATH=/path/to/maven/bin:$PATH
+```
+
+
 ## Contributing
 If you like the project, you can give the project a star, or [submit an issue](https://github.com/CyniaAI/BukkitGPT-v3/issues) or [pull request](https://github.com/CyniaAI/BukkitGPT-v3/pulls) to help make it better.
 
