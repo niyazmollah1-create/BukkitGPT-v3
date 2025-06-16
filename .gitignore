@@ -1,13 +1,12 @@
 __pycache__
-temp/*
-build/*
-logs/*
+/temp/*
+/build/*
+/logs/*
 test.py
 _config.yaml
-codes
-codes/*
-dev/*
+/codes/*
+/dev/*
 test.txt
-test/*
+/test/*
 
 .env
