@@ -1,402 +1,124 @@
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage, SystemMessage
-import chardet
-import sys
-import json
-import locale
 import os
-import requests
-import subprocess
-import re
+import uuid
 import shutil
 
-from diff import apply_patch
-from log_writer import logger
+import build
 import config
+import utils
+from log_writer import logger
+
+# Re-export utility functions for backward compatibility
+initialize = utils.initialize
+askgpt = utils.askgpt
+response_to_action = utils.response_to_action
+mixed_decode = utils.mixed_decode
+decompile_jar = utils.decompile_jar
+code_to_text = utils.code_to_text
+parse_edit_response = utils.parse_edit_response
+apply_diff_changes = utils.apply_diff_changes
 
 
-def _create_client(provider: str, api_key: str, base_url: str, model_name: str):
-    provider = provider.lower()
-    if provider == "anthropic":
-        return ChatAnthropic(api_key=api_key, model_name=model_name, max_tokens=10000)
-    if provider == "google":
-        return ChatGoogleGenerativeAI(
-            google_api_key=api_key,
-            model=model_name,
-            max_output_tokens=10000,
+def generate(args: dict) -> bool:
+    """Generate a new plugin using the provided arguments."""
+    name = args["PluginName"].get()
+    description = args["PluginDescription"].get()
+
+    artifact_name = name.replace(" ", "")
+    package_id = f"org.CyniaAI.{uuid.uuid4().hex[:8]}"
+    pkg_id_path = "".join(id + "/" for id in package_id.split("."))
+
+    logger(f"user_input -> name: {name}")
+    logger(f"user_input -> description: {description}")
+    logger(f"random_generate -> package_id: {package_id}")
+    logger(f"str_path -> pkg_id_path: {pkg_id_path}")
+
+    print("Generating plugin...")
+
+    codes = askgpt(
+        config.SYS_GEN.replace("%ARTIFACT_NAME%", artifact_name).replace(
+            "%PKG_ID_LST%", pkg_id_path
+        ),
+        config.USR_GEN.replace("%DESCRIPTION", description),
+        config.GENERATION_MODEL,
+    )
+    logger(f"codes: {codes}")
+
+    response_to_action(codes)
+
+    print("Code generated. Building now...")
+
+    result = build.build_plugin(artifact_name)
+
+    target_dir = f"codes/{artifact_name}/target"
+    jar_files = [f for f in os.listdir(target_dir) if f.endswith('.jar')]
+
+    if jar_files:
+        print(f"Build complete. Find your plugin at '{target_dir}/{jar_files[0]}'")
+    else:
+        print(
+            "Build failed. This is because the code LLM generated has syntax errors. "
+            "Please try again or switch to a better LLM like o1 or r1. IT IS NOT A BUG OF BUKKITGPT."
         )
-    return ChatOpenAI(
-        api_key=api_key,
-        base_url=base_url,
-        model_name=model_name,
-        max_tokens=10000,
-        default_headers={
-            "HTTP-Referer": "https://cynia.dev",
-            "X-Title": "CyniaAI",
-        },
+
+    return True
+
+
+def edit(args: dict) -> bool:
+    """Edit an existing plugin according to the user's request."""
+    original_jar = args["OriginalJAR"].get()
+    edit_request = args["EditRequest"].get()
+
+    decompiled_path = f"codes/decompiled/{original_jar.split('/')[-1].split('.')[0]}"
+
+    decompile_jar(original_jar, decompiled_path)
+
+    os.makedirs(f"{decompiled_path}/src/main/java", exist_ok=True)
+
+    summary_path = os.path.join(decompiled_path, "summary.txt")
+    if os.path.exists(summary_path):
+        os.remove(summary_path)
+
+    for item in os.listdir(decompiled_path):
+        if item != 'src':
+            s = os.path.join(decompiled_path, item)
+            d = os.path.join(decompiled_path, "src/main/java", item)
+            if os.path.isdir(s):
+                shutil.move(s, d)
+            elif os.path.isfile(s):
+                shutil.move(s, d)
+
+    with open(f"{decompiled_path}/pom.xml", "w") as f:
+        f.write("<!-- Replace with the pom.xml code -->")
+
+    code_text = code_to_text(decompiled_path)
+    response = askgpt(
+        config.SYS_EDIT,
+        config.USR_EDIT.replace("ORIGINAL_CODE", code_text).replace("REQUEST", edit_request),
+        config.GENERATION_MODEL,
     )
 
+    diffs = parse_edit_response(response)
+    logger(f"[DEBUG] Extracted diffs: {diffs}")
 
-def initialize() -> None:
-    """
-    Initializes the software.
+    resp = apply_diff_changes(diffs, decompiled_path)
 
-    This function logs the software launch, including the version number and platform.
-
-    Args:
-        None
-
-    Returns:
-        None
-    """
-    try:
-        locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
-    except locale.Error:
-        logger("Locale en_US.UTF-8 not available, using default locale.")
-    logger(f"Launch. Software version {config.VERSION_NUMBER}, platform {sys.platform}")
-
-
-def askgpt(
-        system_prompt: str,
-        user_prompt: str,
-        model_name: str
-    ) -> str:
-    """
-    Interacts with the LLM using the specified prompts.
-
-    Args:
-        system_prompt (str): The system prompt.
-        user_prompt (str): The user prompt.
-        model_name (str): The model name to use.
-
-    Returns:
-        str: The response from the LLM.
-    """
-    provider = getattr(config, "LLM_PROVIDER", "openai")
-    api_key = config.API_KEY
-    base_url = config.BASE_URL
-
-    client = _create_client(provider, api_key, base_url, model_name)
-
-    logger(f"Initialized the {provider} LLM client.")
-
-    # Define the messages for the conversation
-    if config.GENERATION_MODEL == "o1-preview" or config.GENERATION_MODEL == "o1-mini":
-        messages = [
-            HumanMessage(content=system_prompt),
-            HumanMessage(content=user_prompt)
-        ]
+    if resp[0] is False:
+        print(
+            "The diff LLM generated is invalid. Please try again or switch to a better LLM like o1 or r1. IT IS NOT A BUG OF BUKKITGPT."
+        )
     else:
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt)
-        ]
+        print("Edit complete. Recompiling...")
+        result = build.build_plugin(decompiled_path, path=True)
+        target_dir = f"{decompiled_path}/target"
+        jar_files = [f for f in os.listdir(target_dir) if f.endswith('.jar')]
 
-    logger(f"askgpt: system {system_prompt}")
-    logger(f"askgpt: user {user_prompt}")
-
-    # Create a chat completion
-    try:
-        response = client.invoke(messages)
-    except Exception as e:
-        logger(f"askgpt: invoke error {e}")
-        if "connect" in str(e).lower():
-            raise Exception(
-                "Failed to connect to your LLM provider. Please check your configuration (make sure the BASE_URL ends with /v1) and internet connection. IT IS NOT A BUG OF BUKKITGPT."
+        if jar_files:
+            print(f"Build complete. Find your plugin at '{target_dir}/{jar_files[0]}'")
+        else:
+            print(
+                "Build failed. This is because the code LLM generated has syntax errors. "
+                "Please try again or switch to a better LLM like o1 or r1. IT IS NOT A BUG OF BUKKITGPT."
             )
-        if "api key" in str(e).lower():
-            raise Exception(
-                "Your API key is invalid. Please check your configuration. IT IS NOT A BUG OF BUKKITGPT."
-            )
-        raise
 
-    logger(f"askgpt: response {response}")
+    return True
 
-    if "Too many requests" in str(response):
-        logger("Too many requests. Please try again later.")
-        raise Exception(
-            "Your LLM provider has rate limited you. Please try again later. IT IS NOT A BUG OF BUKKITGPT."
-        )
-
-    # Extract the assistant's reply
-    try:
-        assistant_reply = response.content
-        logger(f"askgpt: extracted reply {assistant_reply}")
-    except Exception as e:
-        logger(f"askgpt: error extracting reply {e}")
-        raise Exception(
-            "Your LLM didn't return a valid response. Check if the API provider supportes OpenAI response format."
-        )
-
-    return assistant_reply
-
-
-def response_to_action(msg) -> str:
-    """
-    Converts a response from the LLM to an action.
-
-    Args:
-        msg (str): The response from the LLM.
-
-    Returns:
-        str: The action to take.
-    """
-
-    pattern = r"```json(.*?)```"
-    matches = re.findall(pattern, msg, re.DOTALL)
-    if not matches:
-        raise Exception("Invalid response format from LLM. Expected JSON code block.")
-    json_codes = matches[0].strip()
-
-    text = json.loads(json_codes)
-
-    codes = text["codes"]
-
-    for section in codes:
-        file = section["file"]
-        code = section["code"].replace("%linefeed%", "\n")
-
-        paths = file.split("/")
-
-        # Join the list elements to form a path
-        path = os.path.join(*paths)
-
-        # Get the directory path and the file name
-        dir_path, file_name = os.path.split(path)
-
-        # Create directories, if they don't exist
-        try:
-            os.makedirs(dir_path, exist_ok=True)
-        except FileNotFoundError:
-            pass
-
-        # Create the file
-        with open(path, "w") as f:
-            f.write(code)  # Write an empty string to the file
-
-
-def mixed_decode(text: str) -> str:
-    """
-    Decode a mixed text containing both normal text and a byte sequence.
-
-    Args:
-        text (str): The mixed text to be decoded.
-
-    Returns:
-        str: The decoded text, where the byte sequence has been converted to its corresponding characters.
-
-    """
-    # Split the normal text and the byte sequence
-    # Assuming the byte sequence is everything after the last colon and space ": "
-    try:
-        normal_text, byte_text = text.rsplit(": ", 1)
-    except (TypeError, ValueError):
-        # The text only contains normal text
-        return text
-
-    # Convert the byte sequence to actual bytes
-    byte_sequence = byte_text.encode(
-        "latin1"
-    )  # latin1 encoding maps byte values directly to unicode code points
-
-    # Detect the encoding of the byte sequence
-    detected_encoding = chardet.detect(byte_sequence)
-    encoding = detected_encoding["encoding"]
-
-    # Decode the byte sequence
-    decoded_text = byte_sequence.decode(encoding)
-
-    # Combine the normal text with the decoded byte sequence
-    final_text = normal_text + ": " + decoded_text
-    return final_text
-
-def decompile_jar(jar_path: str, output_dir: str) -> bool:
-    """
-    Decompiles a JAR file using the CFR tool.
-
-    Args:
-        jar_path (str): Path to the JAR file to be decompiled.
-        output_dir (str): Directory where the decompiled source code will be saved.
-
-    Returns:
-        bool: True if decompilation is successful, False otherwise.
-    """
-    CFR_JAR_PATH = os.path.join("lib", "cfr-0.152.jar")
-    
-    
-    # Remove the output directory if it already exists
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
-    os.makedirs(output_dir)
-    
-    # Run CFR to decompile the JAR file
-    try:
-        print("Starting JAR decompilation...")
-        command = [
-            "java", "-jar", CFR_JAR_PATH, jar_path, "--outputdir", output_dir
-        ]
-        subprocess.run(command, check=True)
-        print(f"Decompilation complete. Source code saved to {output_dir}")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"Decompilation failed: {e}")
-        return False
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return False
-
-
-def code_to_text(directory: str) -> str:
-    """
-    Converts the code in a directory to text.
-
-    Args:
-        directory (str): The directory containing the code files.
-
-    Returns:
-        str: The text representation of the code.
-    
-    Return Structure:
-        file1_path:
-        ```
-        1  code
-        2  code
-        ...
-        ```
-        file2_path:
-        Cannot load non-text file
-        ...
-    """
-    def is_text_file(file_path):
-        txt_extensions = [
-            ".txt",
-            ".java",
-            ".py",
-            ".md",
-            ".json",
-            ".yaml",
-            ".yml",
-            ".xml",
-            ".toml",
-            ".ini",
-            ".js",
-            ".groovy",
-            ".log",
-            ".properties",
-            ".cfg",
-            ".conf",
-            ".bat",
-            ".sh",
-            "README",
-        ]
-        return any(file_path.endswith(ext) for ext in txt_extensions)
-
-    text = ""
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            file_path = os.path.join(root, file)
-            relative_path = os.path.relpath(file_path, directory)
-            
-            if is_text_file(file_path):
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        # Add line numbers to content
-                        numbered_lines = [f"{i+1:<3} {line}" for i, line in enumerate(content.splitlines())]
-                        numbered_content = '\n'.join(numbered_lines)
-                        text += f"{relative_path}:\n```\n{numbered_content}\n```\n"
-                except Exception as e:
-                    text += f"{relative_path}: Cannot load non-text file\n"
-            else:
-                text += f"{relative_path}: Cannot load non-text file\n"
-    
-    return text
-    
-
-def parse_edit_response(edit_response: str):
-    """
-    Parses a string containing code diff blocks and extracts the diff content.
-
-    Takes an edit response string containing code diffs formatted in markdown and extracts
-    the content between ```diff and ``` tags.
-
-    Args:
-        edit_response (str): A string containing one or more markdown code diff blocks
-
-    Returns:
-        list[str]: A list of strings containing the extracted diff content, with leading/trailing whitespace removed
-    """
-    pattern = r"```diff(.*?)```"
-    matches = re.findall(pattern, edit_response, re.DOTALL)
-    diffs = [m.strip() for m in matches]
-    return diffs
-
-def apply_diff_changes(diffs: list[str], decomplied_path) -> bool:
-    """
-    Applies the changes specified in a list of diff blocks.
-
-    Args:
-        diffs (list[str]): A list of strings containing diff blocks
-
-    Returns:
-        array(bool, string): 
-            bool: True if the changes were successfully applied, False otherwise
-            string: The message.
-    
-    Example Diff:
-        diff --git a/test.txt b/test.txt
-        --- a/test.txt
-        +++ b/test.txt
-        -strawberry
-        +apple
-        @@ -2,5 +2,5 @@
-    """
-    for diff in diffs:
-        lines = diff.split("\n")
-
-        # Ignore the first line.
-
-        # The second and third lines contain the file paths.
-        original_file = None
-        modified_file = None
-
-        for line in lines:
-            #####################
-            logger(f"Handling pointing line: {line}")
-            if line.startswith("---"):
-                logger(f"Found original file path: {line}")
-                original_file = line.split("---")[-1].strip()
-                original_file = original_file.replace(original_file.split("/")[0], decomplied_path, 1)
-            elif line.startswith("+++"):
-                logger(f"Found modified file path: {line}")
-                modified_file = line.split("+++")[-1].strip()
-                modified_file = modified_file.replace( modified_file.split("/")[0] , decomplied_path, 1)
-
-        if original_file is None or modified_file is None:
-            return (False, f"One of your diffs is missing the file paths. (eg. --- a/test.txt and +++ b/test.txt).\nThe error diff content: {diff}")
-        
-        # The remaining lines contain the diff.
-        diff_lines = lines[3:]
-        diff_codes = "\n".join(diff_lines)
-
-        # Apply diff with diff.py
-        with open(original_file, "r") as file:
-            original_content = file.read()
-
-        # try:
-        #     result = apply_patch(original_content, diff_codes)
-        # except:
-        #     return (False, f"One of your diffs has a syntax error. Please check and fix your diff.\nThe error diff content: {diff}")
-
-        result = apply_patch(original_content, diff_codes)
-
-        with open(modified_file, "w") as file:
-            file.write(result)
-
-    return (True, "")
-
-
-if __name__ == "__main__":
-    print("This script is not meant to be run directly. Please run console.py instead.")
