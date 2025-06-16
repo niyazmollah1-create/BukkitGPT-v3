@@ -1,10 +1,10 @@
 __pycache__
-generated/*
 temp/*
 build/*
 logs/*
 test.py
 _config.yaml
+codes
 codes/*
 dev/*
 test.txt
