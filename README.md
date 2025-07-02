@@ -1,36 +1,27 @@
-<!--
 <div align="center">
-<img src="https://github.com/CyniaAI/CubeAgents/blob/master/banner.jpeg?raw=true"/>
-<img src="https://img.shields.io/badge/Cube-Agents-blue">
-<a href="https://github.com/CyniaAI/BuilderGPT/pulls"><img src="https://img.shields.io/badge/PRs-welcome-20BF20"></a>
-<img src="https://img.shields.io/badge/License-Apache-red">
-<a href="https://discord.gg/kTZtXw8s7r"><img src="https://img.shields.io/discord/1212765516532289587
-"></a>
-<p>English | <a href="https://github.com/CyniaAI/CubeAgents/blob/master/README-zh_cn.md">简体中文</a></p>
-<br>
-<a href="https://discord.gg/kTZtXw8s7r">Join our discord</a>
-<br/>
+    <img src="https://github.com/Zhou-Shilin/picx-images-hosting/raw/master/image.1ovowaujq2.webp" alt="BukkitGPT Logo"/>
+    <h1>BukkitGPT</h1>
+    <p>AI-powered Minecraft Bukkit plugin generator</p>
+    <a href="https://cynia.dev">Visit our website</a>  |  <a href="https://discord.gg/kTZtXw8s7r">Join our discord</a>
 </div>
--->
+
 
 > [!NOTE]
 > Developers and translators are welcome to join the CyniaAI Team!
-
-[Join our discord](https://discord.gg/kTZtXw8s7r)
 
 ## Introduction
 > Give the LLM your idea, AI generates customized Minecraft server plugins with one click, which is suitable for Bukkit, Spigot, Paper, Purpur, Arclight, CatServer, Magma, Mohist and other Bukkit-based servers.
 
 BukkitGPT is an open source, free, AI-powered Minecraft Bukkit plugin generator. It was developed for minecraft server owners who are not technically savvy but need to implement all kinds of customized small plugins. From code to build, debug, all done by the LLM.
 
-## WebApp
+## CyniaAI WebApp
 
 > [!WARNING]
-> There're big differences between *BukkitGPT(-v3)* and *BukkitGPT WebApp*. The BukkitGPT is a self-hosted, free, open-source, community-driven project, while the BukkitGPT WebApp is a paid, cloud-hosted service that provides a more user-friendly experience for non-developers.
-> Issues and questions about BukkitGPT WebApp should be directed to our [Discord Server](https://discord.gg/kTZtXw8s7r).
+> There're big differences between *BukkitGPT-v3 WebUI* and *CyniaAI WebApp*. BukkitGPT is a self-hosted, free, open-source, community-driven project, while CyniaAI WebApp is a paid, cloud-hosted service that provides a more user-friendly experience for non-developers.
+> Issues and questions about CyniaAI WebApp should be directed to our [Discord Server](https://discord.gg/kTZtXw8s7r).
 
 Don't want to deal with Python, Maven, BuildTools, and other complicated environments?
-Hey! Here's [the WebApp version](https://cynia.dev) designed just for you - generate plugins **even on your phone**!
+Hey! Here's [the CyniaAI WebApp](https://cynia.dev) designed just for you - generate plugins **even on your phone**!
 
 *The service is paid since the API key we are using is not free. You can get 1 key for 5 generations for $1 [here](https://afdian.com/item/b839835461e311efbd1252540025c377)
 
@@ -40,6 +31,7 @@ Hey! Here's [the WebApp version](https://cynia.dev) designed just for you - gene
 
 - Automatically generate plugin code based on the user's description.
 - Edit existing plugins.
+- Brand new Streamlit UI.
 
 ### Other projects of CyniaAI Team
 - [x] Bukkit plugin generator. {*.jar} ([BukkitGPT-v3](https://github.com/CyniaAI/BukkitGPT-v3))
@@ -61,8 +53,9 @@ source venv/bin/activate # for Windows, use `venv\Scripts\activate`
 pip install -r requirements.txt
 ```
 2. Copy `.env.example` to `.env` and edit it to set `LLM_PROVIDER` (e.g. `openai`, `anthropic`, `google`) and fill in your provider API key.
-3. Run `ui.py` (with command `python ui.py`).
-4. Enjoy!
+3. Run bash command `streamlit web.py` to start the web application.
+4. Open your browser and go to `http://localhost:8501` to access the web application.
+5. Enjoy!
 
 ## Troubleshooting
 
