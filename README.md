@@ -12,7 +12,10 @@
 ## Introduction
 > Give the LLM your idea, AI generates customized Minecraft server plugins with one click, which is suitable for Bukkit, Spigot, Paper, Purpur, Arclight, CatServer, Magma, Mohist and other Bukkit-based servers.
 
+[Watch the Video Tutorial](https://youtu.be/ubqH-e4aaRU?si=p0uxiJbzXP9vYDuQ)
+
 BukkitGPT is an open source, free, AI-powered Minecraft Bukkit plugin generator. It was developed for minecraft server owners who are not technically savvy but need to implement all kinds of customized small plugins. From code to build, debug, all done by the LLM.
+
 
 ## CyniaAI WebApp
 
